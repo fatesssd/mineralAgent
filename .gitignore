@@ -40,3 +40,13 @@ frontend/dist/
 frontend/coverage/
 frontend/playwright-report/
 frontend/test-results/
+
+# Local private knowledge and large model resources
+/private-knowledge/
+/models/
+/uploads/
+/secrets/
+.tools/
+.work/
+*.sqlite
+*.sqlite3

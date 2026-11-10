@@ -165,14 +165,14 @@ function installCapabilityCatalog() {
     catalog_hash: 'a'.repeat(64),
     skills: [
       {
-        name: 'web-research',
+        name: 'knowledge-base',
         version: '1.0.0',
         description: 'Research public web evidence.',
-        activation: '/web-research',
+        activation: '/knowledge-base',
         available: true,
         availability_reason: null,
         required_roles: [],
-        tool_names: ['web_search', 'web_fetch'],
+        tool_names: ['search_knowledge_base'],
         approval_tools: [],
         network_policies: ['restricted'],
         resource_scopes: ['public-web'],
@@ -317,12 +317,12 @@ describe('durable chat projection', () => {
     expect(threadStore.showHistorySidebar).toBe(false);
   });
 
-  it('keeps the user-facing prompt clean while activating Web Research for the Run', async () => {
+  it('keeps the user-facing prompt clean while activating knowledge-base retrieval for the Run', async () => {
     const streams = installControlledStreams();
     const { chatStore } = setupStores();
     const capabilityStore = installCapabilityCatalog();
-    capabilityStore.selectSkill('web-research');
-    chatStore.userInput = '核验今天的公开发布信息';
+    capabilityStore.selectSkill('knowledge-base');
+    chatStore.userInput = '核查斑岩铜矿的蚀变分带';
 
     const sending = chatStore.handleSend();
     await flushPromises();
@@ -331,15 +331,15 @@ describe('durable chat projection', () => {
       expect.objectContaining({
         threadId: 'thread-1',
         request: expect.objectContaining({
-          message: '/web-research\n核验今天的公开发布信息',
+          message: '/knowledge-base\n核查斑岩铜矿的蚀变分带',
           approved_tools: [],
         }),
         token: 'test-token',
       })
     );
     expect(chatStore.messages[0]).toMatchObject({
-      text: '核验今天的公开发布信息',
-      skillName: 'web-research',
+      text: '核查斑岩铜矿的蚀变分带',
+      skillName: 'knowledge-base',
     });
 
     streams.emit('run_1', event('run_1', 'thread-1', 1, 'run.created'));
@@ -350,90 +350,6 @@ describe('durable chat projection', () => {
     streams.emit('run_1', event('run_1', 'thread-1', 3, 'run.completed'));
     streams.finish('run_1', 3);
     await sending;
-  });
-
-  it('opens a real pre-Run approval flow before sending Sandbox source', async () => {
-    const streams = installControlledStreams();
-    const { chatStore } = setupStores();
-    const capabilityStore = installCapabilityCatalog();
-    capabilityStore.selectSkill('sandbox');
-    capabilityStore.setSandboxLanguage('python');
-    chatStore.userInput = 'print(6 * 7)';
-
-    await chatStore.handleSend();
-
-    expect(capabilityStore.approvalOpen).toBe(true);
-    expect(createRunEventStream).not.toHaveBeenCalled();
-
-    capabilityStore.confirmPendingApproval();
-    const sending = chatStore.handleSend({ approvalConfirmed: true });
-    await flushPromises();
-
-    expect(createRunEventStream).toHaveBeenCalledWith(
-      expect.objectContaining({
-        threadId: 'thread-1',
-        request: expect.objectContaining({
-          message: expect.stringContaining('"source": "print(6 * 7)"'),
-          approved_tools: ['sandbox_execute'],
-        }),
-        token: 'test-token',
-      })
-    );
-    expect(capabilityStore.pendingApprovalDraft?.confirmed).toBe(false);
-
-    streams.emit('run_2', event('run_2', 'thread-1', 1, 'run.created'));
-    streams.emit(
-      'run_2',
-      event('run_2', 'thread-1', 2, 'message.completed', { content: '输出 42' })
-    );
-    streams.emit('run_2', event('run_2', 'thread-1', 3, 'run.completed'));
-    streams.finish('run_2', 3);
-    await sending;
-  });
-
-  it('restores an approved Sandbox draft when Run creation fails before reservation', async () => {
-    vi.mocked(createRunEventStream).mockRejectedValue({
-      code: 'SERVICE_UNAVAILABLE',
-      message: '运行服务暂不可用',
-      retryable: true,
-      category: 'run',
-    });
-    const { chatStore } = setupStores();
-    const capabilityStore = installCapabilityCatalog();
-    capabilityStore.selectSkill('sandbox');
-    chatStore.userInput = 'print("retry")';
-    capabilityStore.openApproval();
-    capabilityStore.confirmPendingApproval();
-
-    await expect(chatStore.handleSend({ approvalConfirmed: true })).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-    });
-
-    expect(chatStore.userInput).toBe('print("retry")');
-    expect(chatStore.messages).toEqual([]);
-    expect(capabilityStore.pendingApprovalDraft?.confirmed).toBe(false);
-  });
-
-  it('clears approved Sandbox state when creating the first Thread fails', async () => {
-    vi.mocked(createThread).mockRejectedValue({
-      code: 'SERVICE_UNAVAILABLE',
-      message: 'Thread 服务暂不可用',
-      retryable: true,
-      category: 'thread',
-    });
-    const { chatStore } = setupStores('');
-    const capabilityStore = installCapabilityCatalog();
-    capabilityStore.selectSkill('sandbox');
-    chatStore.userInput = 'print("new thread")';
-    capabilityStore.openApproval();
-    capabilityStore.confirmPendingApproval();
-
-    await chatStore.handleSend({ approvalConfirmed: true });
-
-    expect(createRunEventStream).not.toHaveBeenCalled();
-    expect(chatStore.userInput).toBe('print("new thread")');
-    expect(capabilityStore.pendingApprovalDraft?.confirmed).toBe(false);
-    expect(alert).toHaveBeenCalledWith('Thread 服务暂不可用');
   });
 
   it('authoritatively deletes the current Thread before returning to a local draft', async () => {

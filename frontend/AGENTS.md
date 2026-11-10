@@ -42,7 +42,6 @@ frontend/src/
 ├── stores/chat.ts              # Run Event → assistant Message/RAG 步骤投影
 ├── stores/documents.ts         # Document 与构建/清理 Job
 ├── stores/models.ts            # Model control plane
-├── stores/capabilityAdmin.ts   # Skill/Tool 管理状态
 ├── stores/evaluations.ts       # Dataset/Job/Case/趋势
 ├── events/runEventStream.ts    # Event v1 SSE 解析和恢复
 ├── events/runEventReducer.ts   # sequence 验证、去重与确定性投影
@@ -165,3 +164,7 @@ create/reserve Run
 
 - 阻止 raw model/Tool/Document HTML、任意 URL 或内部路径进入 DOM。
   安全路径：现有 sanitizer、服务端授权 URI 和用户可见脱敏模型。
+
+## MineralAgent 前端分支
+
+此分支保留找矿问答、历史对话、资料库、模型中心和 RAG 评估。SQL、Web、Sandbox、通用能力管理、审批和 Artifact 下载 UI 已移除；后端与版本化协议保留。品牌和问题示例在 `src/config/product.ts`，领域样式在 `src/assets/styles/mineral.css`。前端能力目录只投影 knowledge-base，并保留服务端不可用／权限语义。修改时不要重新引入已移除页面作为隐藏入口。

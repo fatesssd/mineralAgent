@@ -14,30 +14,6 @@ const presentations: Record<string, SkillPresentation> = {
     summary: '根据已上传文档和引用证据回答',
     icon: 'fa-regular fa-bookmark',
   },
-  'web-research': {
-    label: '网页调研',
-    compactLabel: '网页调研',
-    summary: '检索公开网页并提供可核验来源',
-    icon: 'fa-solid fa-globe',
-  },
-  'sql-assistant': {
-    label: '数据分析',
-    compactLabel: '数据分析',
-    summary: '对授权数据进行安全的只读分析',
-    icon: 'fa-solid fa-database',
-  },
-  sandbox: {
-    label: '代码沙盒',
-    compactLabel: '代码沙盒',
-    summary: '在隔离环境中安全执行代码',
-    icon: 'fa-solid fa-terminal',
-  },
-  weather: {
-    label: '天气查询',
-    compactLabel: '天气查询',
-    summary: '查询天气、气温和未来预报',
-    icon: 'fa-solid fa-cloud-sun',
-  },
 };
 
 const firstChineseIndex = (value: string) => value.search(/[\u3400-\u9fff]/u);

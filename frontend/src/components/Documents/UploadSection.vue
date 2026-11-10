@@ -4,14 +4,14 @@
       <span class="upload-title-icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
       <div>
         <h2>快速入库</h2>
-        <p>解析结构、三级分块并写入混合索引。</p>
+        <p>上传资料，建立可追溯的正文与来源索引。</p>
       </div>
     </div>
 
     <input
       ref="fileInputRef"
       type="file"
-      accept=".pdf,.doc,.docx,.xls,.xlsx,.html,.htm"
+      accept=".pdf,.docx,.xlsx,.html,.htm"
       hidden
       @change="onFileSelect"
     />
@@ -31,7 +31,7 @@
         {{
           documentStore.selectedFile
             ? formatFileSize(documentStore.selectedFile.size)
-            : '或点击选择 PDF、Word、Excel、HTML 文件'
+            : '或选择 PDF、DOCX、XLSX、HTML 文件'
         }}
       </span>
     </button>
@@ -102,7 +102,7 @@
     <div class="upload-pipeline-note">
       <div>
         <span>01</span>
-        <p><strong>结构解析</strong><small>识别章节、表格与页面</small></p>
+        <p><strong>结构解析</strong><small>提取正文与页面信息</small></p>
       </div>
       <div>
         <span>02</span>
@@ -110,7 +110,7 @@
       </div>
       <div>
         <span>03</span>
-        <p><strong>混合索引</strong><small>Dense + BM25 同步写入</small></p>
+        <p><strong>混合索引</strong><small>支持语义与关键词检索</small></p>
       </div>
     </div>
   </section>

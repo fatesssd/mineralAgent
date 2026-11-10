@@ -1,15 +1,12 @@
 import { defineStore } from 'pinia';
 import { getCapabilityCatalog } from '@/capabilities/capabilityClient';
-import { skillDisplayName, skillDisplaySummary } from '@/capabilities/skillPresentation';
+import { isProductSkill } from '@/config/product';
 import type {
-  CapabilityApprovalDraft,
-  CapabilityAvailabilityFilter,
   CapabilityAvailabilityReason,
   CapabilityCatalogResponse,
   CapabilityExecutionMessage,
   CapabilitySkill,
   CapabilityTool,
-  SandboxLanguage,
 } from '@/types/capabilities';
 import { getPublicError } from '@/utils/api';
 
@@ -21,330 +18,123 @@ function capabilityError(
     | 'PERMISSION_DENIED'
     | 'POLICY_DENIED'
     | 'TOOL_UNAVAILABLE',
-  message: string,
-  retryable = false
+  message: string
 ) {
-  return getPublicError({
-    code,
-    message,
-    retryable,
-    category: 'capability',
-  });
+  return getPublicError({ code, message, retryable: false, category: 'capability' });
 }
-
-function normalizedThreadId(threadId: string | null | undefined): string | null {
-  const normalized = threadId?.trim();
-  return normalized || null;
+function normalizedThreadId(value: string | null | undefined): string | null {
+  return value?.trim() || null;
 }
-
-function prepareApprovalDraft(skill: CapabilitySkill | null): CapabilityApprovalDraft | null {
-  if (!skill?.approval_tools.length || !skill.available) return null;
-  return {
-    skillName: skill.name,
-    toolNames: [...skill.approval_tools],
-    confirmed: false,
-  };
-}
-
-function approvalDraftMatches(
-  draft: CapabilityApprovalDraft | null,
-  skill: CapabilitySkill | null
-): boolean {
-  return Boolean(
-    draft &&
-    skill?.available &&
-    draft.skillName === skill.name &&
-    draft.toolNames.length === skill.approval_tools.length &&
-    skill.approval_tools.every((name) => draft.toolNames.includes(name))
-  );
-}
-
 export const useCapabilityStore = defineStore('capabilities', {
   state: () => ({
     catalog: null as CapabilityCatalogResponse | null,
     loading: false,
     error: '',
-    centerOpen: false,
-    paletteOpen: false,
-    approvalOpen: false,
-    searchQuery: '',
-    availabilityFilter: 'all' as CapabilityAvailabilityFilter,
     selectedSkillName: null as string | null,
     activeThreadId: null as string | null,
     selectedSkillByThread: {} as Record<string, string | null>,
-    sandboxLanguage: 'python' as SandboxLanguage,
-    pendingApprovalDraft: null as CapabilityApprovalDraft | null,
+    requestVersion: 0,
   }),
-
   getters: {
     skills: (state): CapabilitySkill[] => state.catalog?.skills || [],
     tools: (state): CapabilityTool[] => state.catalog?.tools || [],
-    isEmpty: (state): boolean =>
-      Boolean(
-        !state.loading &&
-        state.catalog &&
-        state.catalog.skills.length === 0 &&
-        state.catalog.tools.length === 0
-      ),
     selectedSkill(state): CapabilitySkill | null {
-      if (!state.selectedSkillName) return null;
       return state.catalog?.skills.find((skill) => skill.name === state.selectedSkillName) || null;
-    },
-    selectedTools(): CapabilityTool[] {
-      const selected = this.selectedSkill;
-      if (!selected) return [];
-      const toolNames = new Set(selected.tool_names);
-      return this.tools.filter((tool) => toolNames.has(tool.name));
     },
     selectedModeUnavailableReason(state): CapabilityAvailabilityReason {
       if (!state.selectedSkillName) return null;
       const selected = state.catalog?.skills.find(
         (skill) => skill.name === state.selectedSkillName
       );
-      if (!selected) return 'not_configured';
-      return selected.available ? null : selected.availability_reason || 'not_configured';
-    },
-    filteredSkills(state): CapabilitySkill[] {
-      const query = state.searchQuery.trim().toLocaleLowerCase();
-      return (state.catalog?.skills || []).filter((skill) => {
-        if (state.availabilityFilter === 'available' && !skill.available) return false;
-        if (state.availabilityFilter === 'unavailable' && skill.available) return false;
-        if (!query) return true;
-        return [
-          skill.name,
-          skill.description,
-          skill.activation,
-          skillDisplayName(skill.name, skill.description),
-          skillDisplaySummary(skill),
-          ...skill.tool_names,
-        ]
-          .join(' ')
-          .toLocaleLowerCase()
-          .includes(query);
-      });
-    },
-    selectedApprovedTools(state): string[] {
-      const selected = state.catalog?.skills.find(
-        (skill) => skill.name === state.selectedSkillName
-      );
-      const draft = state.pendingApprovalDraft;
-      if (!selected || !draft?.confirmed || draft.skillName !== selected.name) return [];
-      const approved = new Set(draft.toolNames);
-      return selected.approval_tools.filter((name) => approved.has(name));
+      return !selected
+        ? 'not_configured'
+        : selected.available
+          ? null
+          : selected.availability_reason || 'not_configured';
     },
   },
-
   actions: {
     async fetchCatalog() {
+      const version = ++this.requestVersion;
       this.loading = true;
       this.error = '';
       try {
-        const catalog = await getCapabilityCatalog();
-        this.catalog = catalog;
-        const selected = this.selectedSkill;
-        if (!approvalDraftMatches(this.pendingApprovalDraft, selected)) {
-          this.pendingApprovalDraft = prepareApprovalDraft(selected);
-        }
+        const server = await getCapabilityCatalog();
+        const skills = server.skills.filter((skill) => isProductSkill(skill.name));
+        const toolNames = new Set(skills.flatMap((skill) => skill.tool_names));
+        const catalog = {
+          ...server,
+          skills,
+          tools: server.tools.filter((tool) => toolNames.has(tool.name)),
+        };
+        if (version === this.requestVersion) this.catalog = catalog;
         return catalog;
       } catch (error) {
-        const publicError = getPublicError(error);
-        this.error = publicError.message;
-        throw publicError;
+        const result = getPublicError(error);
+        if (version === this.requestVersion) this.error = result.message;
+        throw result;
       } finally {
-        this.loading = false;
+        if (version === this.requestVersion) this.loading = false;
       }
     },
-
     retryCatalog() {
       return this.fetchCatalog();
     },
-
-    openCenter() {
-      this.centerOpen = true;
-      this.paletteOpen = false;
-      this.approvalOpen = false;
-    },
-
-    closeCenter() {
-      this.centerOpen = false;
-    },
-
-    toggleCenter() {
-      if (this.centerOpen) this.closeCenter();
-      else this.openCenter();
-    },
-
-    openPalette() {
-      this.paletteOpen = true;
-      this.centerOpen = false;
-      this.approvalOpen = false;
-    },
-
-    closePalette() {
-      this.paletteOpen = false;
-    },
-
-    togglePalette() {
-      if (this.paletteOpen) this.closePalette();
-      else this.openPalette();
-    },
-
-    openApproval() {
-      const draft = this.pendingApprovalDraft;
-      if (!draft || !draft.toolNames.length || draft.confirmed) {
-        throw capabilityError('POLICY_DENIED', '当前没有待确认的工具审批。');
-      }
-      this.approvalOpen = true;
-      this.centerOpen = false;
-      this.paletteOpen = false;
-    },
-
-    closeApproval() {
-      this.approvalOpen = false;
-    },
-
-    setSearchQuery(query: string) {
-      this.searchQuery = query;
-    },
-
-    setAvailabilityFilter(filter: CapabilityAvailabilityFilter) {
-      this.availabilityFilter = filter;
-    },
-
     setActiveThread(threadId: string | null) {
       this.activeThreadId = normalizedThreadId(threadId);
       this.selectedSkillName = this.activeThreadId
         ? (this.selectedSkillByThread[this.activeThreadId] ?? null)
         : null;
-      this.pendingApprovalDraft = prepareApprovalDraft(this.selectedSkill);
     },
-
     selectSkill(skillName: string | null, threadId?: string | null) {
-      const normalizedName = skillName?.trim() || null;
-      if (normalizedName) {
-        if (!this.catalog) {
-          throw capabilityError('CONFLICT', '能力目录尚未加载，请刷新后重试。', true);
-        }
-        const skill = this.catalog.skills.find((item) => item.name === normalizedName);
-        if (!skill) {
-          throw capabilityError('NOT_FOUND', '所选能力不存在或已被移除。');
-        }
-        if (!skill.available) {
-          const code =
+      const name = skillName?.trim() || null;
+      if (name) {
+        if (!isProductSkill(name))
+          throw capabilityError('TOOL_UNAVAILABLE', '此版本仅提供地质知识库问答。');
+        if (!this.catalog) throw capabilityError('CONFLICT', '资料检索能力尚未加载，请稍后重试。');
+        const skill = this.catalog.skills.find((item) => item.name === name);
+        if (!skill) throw capabilityError('NOT_FOUND', '知识库能力尚未配置。');
+        if (!skill.available)
+          throw capabilityError(
             skill.availability_reason === 'permission_required'
               ? 'PERMISSION_DENIED'
-              : 'TOOL_UNAVAILABLE';
-          throw capabilityError(code, '所选能力当前不可用，不能启动 Run。');
-        }
+              : 'TOOL_UNAVAILABLE',
+            '当前账号无法使用知识库能力。'
+          );
+        if (skill.approval_tools.length)
+          throw capabilityError('POLICY_DENIED', '此版本不提供高风险工具审批。');
       }
-
-      this.selectedSkillName = normalizedName;
-      const effectiveThreadId = normalizedThreadId(
-        threadId === undefined ? this.activeThreadId : threadId
-      );
-      if (effectiveThreadId) {
-        this.selectedSkillByThread = {
-          ...this.selectedSkillByThread,
-          [effectiveThreadId]: normalizedName,
-        };
-      }
-      this.pendingApprovalDraft = prepareApprovalDraft(this.selectedSkill);
+      this.selectedSkillName = name;
+      const id = normalizedThreadId(threadId === undefined ? this.activeThreadId : threadId);
+      if (id) this.selectedSkillByThread = { ...this.selectedSkillByThread, [id]: name };
     },
-
     restoreThreadSkill(skillName: string | null | undefined, threadId: string) {
-      const normalizedThread = normalizedThreadId(threadId);
-      if (!normalizedThread) return;
-      const normalizedName = skillName?.trim() || null;
-      this.selectedSkillByThread = {
-        ...this.selectedSkillByThread,
-        [normalizedThread]: normalizedName,
-      };
-      if (this.activeThreadId === normalizedThread) {
-        this.selectedSkillName = normalizedName;
-        this.pendingApprovalDraft = prepareApprovalDraft(this.selectedSkill);
-      }
+      const id = normalizedThreadId(threadId);
+      if (!id) return;
+      const name = skillName?.trim() || null;
+      this.selectedSkillByThread = { ...this.selectedSkillByThread, [id]: name };
+      if (this.activeThreadId === id) this.selectedSkillName = name;
     },
-
     clearThreadSelection(threadId: string) {
-      const normalized = normalizedThreadId(threadId);
-      if (!normalized) return;
-      const { [normalized]: _removed, ...remaining } = this.selectedSkillByThread;
+      const id = normalizedThreadId(threadId);
+      if (!id) return;
+      const remaining = { ...this.selectedSkillByThread };
+      delete remaining[id];
       this.selectedSkillByThread = remaining;
-      if (this.activeThreadId === normalized) {
-        this.selectedSkillName = null;
-        this.pendingApprovalDraft = null;
-      }
+      if (this.activeThreadId === id) this.selectedSkillName = null;
     },
-
-    setSandboxLanguage(language: SandboxLanguage) {
-      if (language !== 'python' && language !== 'sh') {
-        throw capabilityError('INVALID_REQUEST', 'Sandbox 只支持 python 或 sh。');
-      }
-      this.sandboxLanguage = language;
-    },
-
-    confirmPendingApproval() {
-      const selected = this.selectedSkill;
-      const draft = this.pendingApprovalDraft;
-      if (
-        !selected ||
-        !selected.available ||
-        !selected.approval_tools.length ||
-        !draft ||
-        draft.skillName !== selected.name ||
-        draft.toolNames.length !== selected.approval_tools.length ||
-        !selected.approval_tools.every((name) => draft.toolNames.includes(name))
-      ) {
-        throw capabilityError('POLICY_DENIED', '当前没有可确认的工具审批。');
-      }
-      this.pendingApprovalDraft = { ...draft, confirmed: true };
-      this.approvalOpen = false;
-    },
-
-    clearApprovalConfirmation() {
-      if (this.pendingApprovalDraft) {
-        this.pendingApprovalDraft = { ...this.pendingApprovalDraft, confirmed: false };
-      }
-      this.approvalOpen = false;
-    },
-
     composeExecutionMessage(userText: string): CapabilityExecutionMessage {
       const source = userText.trim();
-      if (!source) {
-        throw capabilityError('INVALID_REQUEST', '请输入要执行的内容。');
-      }
-      if (!this.selectedSkillName) {
-        return { message: source, approvedTools: [] };
-      }
-
-      const selected = this.selectedSkill;
-      if (!selected || !selected.available || this.selectedModeUnavailableReason) {
-        throw capabilityError('PERMISSION_DENIED', '所选能力当前不可用，不能启动 Run。');
-      }
-      if (
-        selected.approval_tools.length &&
-        (!this.pendingApprovalDraft?.confirmed ||
-          this.pendingApprovalDraft.skillName !== selected.name)
-      ) {
-        throw capabilityError('PERMISSION_DENIED', '该能力需要先确认高风险工具审批。');
-      }
-
-      const message =
-        selected.name === 'sandbox'
-          ? `/sandbox\n请调用 sandbox_execute，并严格使用以下 JSON 参数执行隔离代码：\n${JSON.stringify(
-              { language: this.sandboxLanguage, source },
-              null,
-              2
-            )}`
-          : `/${selected.name}\n${source}`;
-      return {
-        message,
-        approvedTools: [...this.selectedApprovedTools],
-      };
+      if (!source) throw capabilityError('INVALID_REQUEST', '请输入找矿研究问题。');
+      if (!this.selectedSkillName) return { message: source, approvedTools: [] };
+      if (!isProductSkill(this.selectedSkillName) || this.selectedModeUnavailableReason)
+        throw capabilityError('TOOL_UNAVAILABLE', '当前版本不支持所选历史模式，请选择知识库问答。');
+      return { message: `/knowledge-base\n${source}`, approvedTools: [] };
     },
-
     reset() {
+      const version = this.requestVersion + 1;
       this.$reset();
+      this.requestVersion = version;
     },
   },
 });

@@ -2,8 +2,8 @@
   <aside class="knowledge-context">
     <div class="context-header">
       <div>
-        <span class="panel-eyebrow">Live evidence</span>
-        <h2>知识脉络</h2>
+        <span class="panel-eyebrow">EVIDENCE NOTEBOOK</span>
+        <h2>找矿证据簿</h2>
       </div>
       <span :class="['context-status', { running: isRunning }]">
         <i :class="isRunning ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-circle-check'"></i>
@@ -14,7 +14,7 @@
     <div v-if="!latestMessage" class="context-empty">
       <img :src="emptyEvidence" class="context-empty-illustration" alt="" />
       <h3>等待一次提问</h3>
-      <p>检索步骤、证据置信度和引用来源会实时出现在这里。</p>
+      <p>提问后，这里会呈现资料来源、检索过程与可复核的原文线索。</p>
     </div>
 
     <template v-else>
@@ -30,18 +30,12 @@
         <ExecutionTimeline :items="timelineItems" />
       </section>
 
-      <ArtifactShelf
-        v-if="latestMessage?.artifacts?.length"
-        :artifacts="latestMessage.artifacts"
-        compact
-      />
-
       <section class="context-card confidence-card">
         <div class="confidence-ring" :style="{ '--confidence': (confidence ?? 0) + '%' }">
           <strong>{{ confidence === null ? '—' : confidence + '%' }}</strong>
         </div>
         <div>
-          <strong>证据置信度</strong>
+          <strong>证据评分</strong>
           <p>{{ confidenceDescription }}</p>
         </div>
       </section>
@@ -82,10 +76,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useChatStore } from '@/stores/chat';
 import ExecutionTimeline from '@/components/Run/ExecutionTimeline.vue';
-import ArtifactShelf from '@/components/Artifacts/ArtifactShelf.vue';
 import type { RunTimelineItem } from '@/events/runEventReducer';
 import type { RetrievedChunk } from '@/types/chat';
-import emptyEvidence from '@/assets/images/empty-evidence.webp';
+import emptyEvidence from '@/assets/images/geology-contour.svg';
 
 interface RunStepView {
   key: string;
@@ -154,7 +147,7 @@ const runSteps = computed<RunStepView[]>(() => {
     return [
       {
         key: 'answer',
-        label: isRunning.value ? '正在连接喵喵 Agent' : '直接回答已完成',
+        label: isRunning.value ? '正在连接找矿助手 Agent' : '直接回答已完成',
         detail: isRunning.value ? '准备理解问题与选择工具' : '本次未产生检索轨迹',
       },
     ];

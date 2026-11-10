@@ -22,10 +22,6 @@ interface ThreadMessagePageState {
   loadingOlder: boolean;
 }
 
-interface SendOptions {
-  approvalConfirmed?: boolean;
-}
-
 function projectionMap(store: object): Map<string, WatchStopHandle> {
   let stops = projectionStops.get(store);
   if (!stops) {
@@ -81,8 +77,7 @@ export const useChatStore = defineStore('chat', {
     messagesByThread: {} as Record<string, Message[]>,
     messagePagesByThread: {} as Record<string, ThreadMessagePageState>,
     userInput: '',
-    activeNav: 'newChat' as
-      'newChat' | 'history' | 'settings' | 'models' | 'evaluations' | 'capabilities-admin',
+    activeNav: 'newChat' as 'newChat' | 'history' | 'settings' | 'models' | 'evaluations',
     threadId: '',
     isCreatingThread: false,
     loadingThreadId: '',
@@ -169,12 +164,7 @@ export const useChatStore = defineStore('chat', {
       if (this.currentPendingHitl) {
         return '输入自定义补充，或选择上方选项后发送...';
       }
-      const skillName = useCapabilityStore().selectedSkillName;
-      if (skillName === 'web-research') return '描述要调研的公开问题、时间范围或来源偏好…';
-      if (skillName === 'sql-assistant') return '描述要分析的业务问题、指标、维度与时间范围…';
-      if (skillName === 'sandbox') return '输入要在隔离环境中执行的代码…';
-      if (skillName === 'knowledge-base') return '询问已上传文档，并说明需要引用的范围…';
-      return '和喵喵说点什么吧... (Shift+Enter 换行)';
+      return '输入矿床、蚀变或勘查问题，结合资料查找证据…';
     },
   },
 
@@ -659,7 +649,7 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async handleSend(options: SendOptions = {}) {
+    async handleSend() {
       const authStore = useAuthStore();
       const threadStore = useThreadStore();
       const runsStore = useRunsStore();
@@ -690,15 +680,6 @@ export const useChatStore = defineStore('chat', {
           );
           return;
         }
-        if (capabilityStore.selectedSkill?.approval_tools.length && !options.approvalConfirmed) {
-          try {
-            capabilityStore.openApproval();
-          } catch (error) {
-            alert(getPublicError(error).message);
-          }
-          return;
-        }
-
         let executionMessage: CapabilityExecutionMessage;
         try {
           executionMessage = capabilityStore.composeExecutionMessage(text);
@@ -725,7 +706,6 @@ export const useChatStore = defineStore('chat', {
           }
         }
         const messages = this.ensureThreadMessages(threadId);
-        const optimisticStartIndex = messages.length;
         const userMessage: Message = {
           text,
           isUser: true,
@@ -765,7 +745,6 @@ export const useChatStore = defineStore('chat', {
               approvedTools: executionMessage.approvedTools,
             },
             ({ reservation, state }) => {
-              capabilityStore.clearApprovalConfirmation();
               const runId = reservation.runId;
               userMessage.runId = runId;
               assistantMessage.runId = runId;
@@ -778,21 +757,14 @@ export const useChatStore = defineStore('chat', {
           await startPromise;
         } catch (error) {
           const publicError = getPublicError(error);
-          if (options.approvalConfirmed && !assistantMessage.runId) {
-            const currentMessages = this.ensureThreadMessages(threadId);
-            currentMessages.splice(optimisticStartIndex, 2);
-            if (this.threadId === threadId) this.messages = currentMessages;
-            this.userInput = text;
-            throw publicError;
-          }
           assistantMessage.isThinking = false;
           assistantMessage.status = 'failed';
           assistantMessage.text = appendPublicError(assistantMessage.text, publicError);
         } finally {
           this.mergeCachedThreadsIntoHistory();
         }
-      } finally {
-        if (options.approvalConfirmed) capabilityStore.clearApprovalConfirmation();
+      } catch (error) {
+        alert(getPublicError(error).message);
       }
     },
 

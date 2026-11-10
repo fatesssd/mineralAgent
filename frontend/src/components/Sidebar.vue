@@ -2,32 +2,32 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="logo-icon" aria-hidden="true">
-        <img :src="superMewMark" class="brand-mark-image" alt="" />
+        <img :src="mineralMark" class="brand-mark-image" alt="" />
       </div>
       <div class="brand-copy">
-        <h1>喵喵助手</h1>
-        <span>Knowledge Copilot</span>
+        <h1>{{ PRODUCT.name }}</h1>
+        <span>{{ PRODUCT.englishName }}</span>
       </div>
     </div>
 
     <div class="workspace-switcher">
       <span class="workspace-orb" aria-hidden="true"></span>
       <span class="workspace-copy">
-        <strong>SuperMew 知识空间</strong>
+        <strong>{{ PRODUCT.workspace }}</strong>
         <small>{{ workspaceMeta }}</small>
       </span>
-      <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      <i class="fa-solid fa-compass" aria-hidden="true"></i>
     </div>
 
     <nav class="sidebar-nav" aria-label="主导航">
       <button
         type="button"
         :class="['nav-btn', { active: chatStore.activeNav === 'newChat' }]"
-        aria-label="智能对话"
+        aria-label="找矿问答"
         @click="onNewChat"
       >
-        <i class="fa-regular fa-message"></i>
-        <span>智能对话</span>
+        <i class="fa-solid fa-compass"></i>
+        <span>找矿问答</span>
       </button>
       <button
         type="button"
@@ -42,25 +42,14 @@
         </small>
       </button>
       <button
-        v-if="authStore.isAuthenticated"
-        type="button"
-        :class="['nav-btn', { active: capabilityStore.centerOpen }]"
-        aria-label="能力中心"
-        @click="capabilityStore.openCenter"
-      >
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <span>能力中心</span>
-        <small class="nav-shortcut">⌘K</small>
-      </button>
-      <button
         v-if="authStore.isAdmin"
         type="button"
         :class="['nav-btn', { active: chatStore.activeNav === 'settings' }]"
-        aria-label="知识库"
+        aria-label="地质资料库"
         @click="onSettings"
       >
         <i class="fa-regular fa-bookmark"></i>
-        <span>知识库</span>
+        <span>地质资料库</span>
       </button>
       <button
         v-if="authStore.isAdmin"
@@ -71,16 +60,6 @@
       >
         <i class="fa-solid fa-microchip"></i>
         <span>模型中心</span>
-      </button>
-      <button
-        v-if="authStore.isAdmin"
-        type="button"
-        :class="['nav-btn', { active: chatStore.activeNav === 'capabilities-admin' }]"
-        aria-label="Skill 与 Tool 管理"
-        @click="onCapabilitiesAdmin"
-      >
-        <i class="fa-solid fa-puzzle-piece"></i>
-        <span>Skill / Tool</span>
       </button>
       <button
         v-if="authStore.isAdmin"
@@ -119,7 +98,7 @@
         </p>
 
         <div v-if="!recentThreads.length" class="recent-empty">
-          还没有历史对话，问喵喵一个问题吧。
+          从一个地质问题开始，建立你的研究线索。
         </div>
       </div>
     </template>
@@ -176,9 +155,9 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useChatStore } from '@/stores/chat';
 import { useThreadStore } from '@/stores/threads';
-import { useCapabilityStore } from '@/stores/capabilities';
+import { PRODUCT } from '@/config/product';
 import type { ThreadListItem } from '@/types/threads';
-import superMewMark from '@/assets/images/supermew-mark.png';
+import mineralMark from '@/assets/images/mineral-mark.svg';
 
 defineProps<{
   theme: 'dark' | 'light';
@@ -191,13 +170,12 @@ defineEmits<{
 const authStore = useAuthStore();
 const chatStore = useChatStore();
 const threadStore = useThreadStore();
-const capabilityStore = useCapabilityStore();
 
 const recentThreads = computed(() => threadStore.threads.slice(0, 4));
 
 const workspaceMeta = computed(() => {
-  if (!authStore.isAuthenticated) return '登录后连接私有知识';
-  return (threadStore.threads.length || 0) + ' 个对话 · 私有';
+  if (!authStore.isAuthenticated) return '本地部署 · 登录后使用';
+  return (threadStore.threads.length || 0) + ' 个对话 · 资料检索';
 });
 
 const roleLabel = computed(() => (authStore.currentUser?.role === 'admin' ? '管理员' : '普通用户'));
@@ -260,16 +238,6 @@ const onModels = () => {
   threadStore.showHistorySidebar = false;
 };
 
-const onCapabilitiesAdmin = () => {
-  if (!authStore.isAdmin) {
-    alert('仅管理员可访问 Skill 与 Tool 管理');
-    return;
-  }
-  capabilityStore.closeCenter();
-  chatStore.activeNav = 'capabilities-admin';
-  threadStore.showHistorySidebar = false;
-};
-
 const onEvaluations = () => {
   if (!authStore.isAdmin) {
     alert('仅管理员可访问 RAG 评估');
@@ -288,7 +256,6 @@ const onLoadThread = async (threadId: string) => {
 };
 
 const onLogout = async () => {
-  capabilityStore.reset();
   threadStore.showHistorySidebar = false;
   await authStore.handleLogout();
 };

@@ -4,12 +4,12 @@
     :class="['message', msg.isUser ? 'user-message' : 'bot-message']"
   >
     <div v-if="!msg.isUser" class="message-avatar" aria-hidden="true">
-      <img :src="superMewMark" class="brand-mark-image" alt="" />
+      <img :src="mineralMark" class="brand-mark-image" alt="" />
     </div>
 
     <div class="message-column">
       <div v-if="!msg.isUser" class="message-author">
-        <span>喵喵助手</span>
+        <span>智能找矿助手</span>
         <small v-if="msg.skillName" class="message-skill-badge">
           <i class="fa-solid fa-wand-magic-sparkles"></i>
           {{ skillCompactName(msg.skillName) }}
@@ -72,7 +72,6 @@
             </p>
             <ExecutionTimeline v-else :items="msg.runTimeline || []" />
           </details>
-          <ArtifactShelf v-if="msg.artifacts?.length" :artifacts="msg.artifacts" compact />
         </div>
       </template>
     </div>
@@ -86,12 +85,11 @@ import MessageContent from './MessageContent.vue';
 import ThinkingTrace from './ThinkingTrace.vue';
 import References from './References.vue';
 import RetrievalTraceDetails from './RetrievalTraceDetails.vue';
-import ArtifactShelf from '@/components/Artifacts/ArtifactShelf.vue';
 import ExecutionTimeline from '@/components/Run/ExecutionTimeline.vue';
 import type { Message } from '@/types/chat';
 import { useChatStore } from '@/stores/chat';
 import { getPublicError } from '@/utils/api';
-import superMewMark from '@/assets/images/supermew-mark.png';
+import mineralMark from '@/assets/images/mineral-mark.svg';
 
 const props = defineProps<{
   msg: Message;

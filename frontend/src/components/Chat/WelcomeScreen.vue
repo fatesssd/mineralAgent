@@ -1,152 +1,65 @@
 <template>
-  <section class="welcome-screen">
-    <img :src="superMewMascot" class="welcome-avatar" alt="" aria-hidden="true" />
-    <span class="welcome-eyebrow"><i class="fa-solid fa-sparkles"></i> 喵喵已准备好</span>
-    <h2>你好，我是喵喵。</h2>
-    <p>我会在回答时检索你的知识库、展示处理过程，并把每个关键结论链接回原始证据。</p>
-
-    <div class="welcome-mode-grid" aria-label="快速选择能力">
+  <section class="welcome-screen mineral-welcome">
+    <div class="welcome-field-label">
+      <span class="field-marker"></span> GEOLOGICAL KNOWLEDGE · 找矿知识
+    </div>
+    <div class="welcome-hero">
+      <div class="welcome-hero-copy">
+        <span class="welcome-eyebrow">从地质线索，到可追溯的证据</span>
+        <h2>让每一次找矿判断，<br /><em>都有据可循。</em></h2>
+        <p>围绕矿床类型、蚀变特征与勘查线索，检索你的地质资料，整理有来源的研究思路。</p>
+      </div>
+      <img :src="contourArt" class="welcome-geology-art" alt="" aria-hidden="true" />
+    </div>
+    <div class="welcome-section-label">
+      <span>从一个问题开始</span><small>选择示例可填入输入框</small>
+    </div>
+    <div class="mineral-starters">
       <button
+        v-for="(item, index) in GEO_STARTERS"
+        :key="item.category"
         type="button"
-        :class="{ active: !capabilityStore.selectedSkillName }"
-        @click="selectMode(null)"
+        @click="applyPrompt(item.prompt)"
       >
-        <span><i class="fa-regular fa-message"></i></span>
-        <strong>智能对话</strong>
-        <small>自动选择合适工具</small>
-      </button>
-      <button
-        v-for="skill in featuredSkills"
-        :key="skill.name"
-        type="button"
-        :class="{ active: capabilityStore.selectedSkillName === skill.name }"
-        :disabled="!skill.available"
-        :title="
-          skill.available
-            ? `使用 ${skillCompactName(skill.name, skill.description)}`
-            : unavailableLabel(skill)
-        "
-        @click="selectMode(skill.name)"
-      >
-        <span><i :class="skillDisplayIcon(skill.name)"></i></span>
-        <strong>{{ skillCompactName(skill.name, skill.description) }}</strong>
-        <small>{{ skill.available ? skillDisplaySummary(skill) : unavailableLabel(skill) }}</small>
+        <span class="starter-topline"
+          ><i :class="item.icon"></i><small>0{{ index + 1 }}</small></span
+        >
+        <span class="starter-category">{{ item.category }}</span>
+        <strong>{{ item.title }}</strong>
+        <span class="starter-arrow" aria-hidden="true"
+          ><i class="fa-solid fa-arrow-up-right-from-square"></i
+        ></span>
       </button>
     </div>
-
-    <button type="button" class="welcome-center-link" @click="capabilityStore.openCenter">
-      <i class="fa-solid fa-wand-magic-sparkles"></i>
-      浏览全部能力与工具
-    </button>
+    <div class="welcome-knowledge-note">
+      <span class="knowledge-note-icon"><i class="fa-solid fa-book-open"></i></span>
+      <div>
+        <strong>从你的地质资料建立知识库</strong>
+        <p>先上传报告、规范与文献，等待索引完成，再围绕原文提问与核验引用。</p>
+      </div>
+      <button v-if="authStore.isAdmin" type="button" @click="openKnowledge">
+        管理资料 <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      <span v-else class="knowledge-note-hint">资料由管理员维护</span>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import {
-  skillCompactName,
-  skillDisplayIcon,
-  skillDisplaySummary,
-} from '@/capabilities/skillPresentation';
-import { useCapabilityStore } from '@/stores/capabilities';
-import type { CapabilitySkill } from '@/types/capabilities';
-import superMewMascot from '@/assets/images/supermew-mascot.webp';
-
-const capabilityStore = useCapabilityStore();
-const featuredNames = ['knowledge-base', 'web-research', 'sql-assistant', 'sandbox'];
-const featuredSkills = computed(() =>
-  featuredNames
-    .map((name) => capabilityStore.skills.find((skill) => skill.name === name))
-    .filter((skill): skill is CapabilitySkill => Boolean(skill))
-);
-
-const selectMode = (name: string | null) => {
-  capabilityStore.selectSkill(name);
-  window.dispatchEvent(new CustomEvent('capability-selected'));
+import { GEO_STARTERS } from '@/config/product';
+import { useChatStore } from '@/stores/chat';
+import { useAuthStore } from '@/stores/auth';
+import { useThreadStore } from '@/stores/threads';
+import contourArt from '@/assets/images/geology-contour.svg';
+const chatStore = useChatStore();
+const authStore = useAuthStore();
+const threadStore = useThreadStore();
+const applyPrompt = (prompt: string) => {
+  chatStore.userInput = prompt;
+  window.dispatchEvent(new CustomEvent('mineral-prompt-selected'));
 };
-
-const unavailableLabel = (skill: CapabilitySkill) =>
-  skill.availability_reason === 'permission_required' ? '当前账号权限不足' : '运行配置尚未就绪';
+const openKnowledge = () => {
+  chatStore.activeNav = 'settings';
+  threadStore.showHistorySidebar = false;
+};
 </script>
-
-<style scoped>
-.welcome-mode-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 20px;
-}
-
-.welcome-mode-grid button {
-  display: grid;
-  min-width: 0;
-  justify-items: center;
-  gap: 5px;
-  padding: 12px 8px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  color: var(--muted);
-  background: var(--surface-soft);
-  cursor: pointer;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background 180ms ease;
-}
-
-.welcome-mode-grid button:hover:not(:disabled),
-.welcome-mode-grid button.active {
-  border-color: rgba(168, 246, 209, 0.3);
-  color: var(--text-soft);
-  background: rgba(168, 246, 209, 0.055);
-  transform: translateY(-2px);
-}
-
-.welcome-mode-grid button > span {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--mint);
-  background: rgba(168, 246, 209, 0.07);
-  font-size: var(--font-small);
-}
-
-.welcome-mode-grid strong,
-.welcome-mode-grid small {
-  overflow: hidden;
-  max-width: 100%;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.welcome-mode-grid strong {
-  color: inherit;
-  font-size: var(--font-small);
-}
-
-.welcome-mode-grid small {
-  font-size: var(--font-micro);
-}
-
-.welcome-center-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--lilac);
-  background: transparent;
-  cursor: pointer;
-  font-size: var(--font-caption);
-}
-
-@media (max-width: 720px) {
-  .welcome-mode-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-</style>

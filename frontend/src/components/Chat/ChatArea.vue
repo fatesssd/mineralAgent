@@ -12,14 +12,6 @@
           </span>
         </div>
         <div class="chat-header-actions">
-          <button
-            type="button"
-            title="打开命令面板 (⌘K)"
-            aria-label="打开命令面板"
-            @click="capabilityStore.openPalette"
-          >
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-          </button>
           <button type="button" title="历史对话" aria-label="打开历史对话" @click="openHistory">
             <i class="fa-solid fa-clock-rotate-left"></i>
           </button>
@@ -104,12 +96,10 @@ import ChatInput from './ChatInput.vue';
 import KnowledgeContextPanel from './KnowledgeContextPanel.vue';
 import { useChatStore } from '@/stores/chat';
 import { useThreadStore } from '@/stores/threads';
-import { useCapabilityStore } from '@/stores/capabilities';
 import type { Message } from '@/types/chat';
 
 const chatStore = useChatStore();
 const threadStore = useThreadStore();
-const capabilityStore = useCapabilityStore();
 const chatContainerRef = ref<HTMLDivElement | null>(null);
 const messageItemRefs = ref<any[]>([]);
 const preservingOlderScroll = ref(false);
@@ -120,7 +110,7 @@ const threadTitle = computed(() => {
   const firstUserMessage = chatStore.messages.find(
     (message) => message.isUser && message.text.trim()
   );
-  if (!firstUserMessage) return '新对话';
+  if (!firstUserMessage) return '找矿研究';
   const text = firstUserMessage.text.trim();
   return text.length > 28 ? text.slice(0, 28) + '…' : text;
 });
@@ -136,10 +126,10 @@ const generationStatus = computed(() => {
   if (chatStore.currentRunStatus === 'creating') return '正在创建运行';
   if (['queued', 'pending'].includes(chatStore.currentRunStatus || '')) return '运行已排队';
   if (chatStore.currentRunStatus === 'cancelling') return '正在终止运行';
-  if (chatStore.currentRunStatus === 'running') return '喵喵正在生成';
+  if (chatStore.currentRunStatus === 'running') return '正在检索与整理';
   if (chatStore.currentRunStatus === 'waiting_input') return '等待你的补充';
   if (chatStore.currentPendingHitl) return '等待你的补充';
-  return '喵喵在线';
+  return '等待提问';
 });
 
 const contextSyncLabel = computed(() => {
@@ -162,7 +152,9 @@ onBeforeUpdate(() => {
 
 const scrollToBottom = () => {
   if (chatContainerRef.value) {
-    chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight;
+    chatContainerRef.value.scrollTop = chatStore.messages.length
+      ? chatContainerRef.value.scrollHeight
+      : 0;
   }
 };
 
